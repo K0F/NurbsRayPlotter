@@ -1,3 +1,3 @@
- # Nurbus plotter
+ # Nurbs Ray Plotter
 
- _This is a attempt to plot NURBS curves utilizing OpenNurbs and RayLib libs._
+ _This is an attempt to render NURBS curves, bridging OpenNurbsLib and RayLib._
