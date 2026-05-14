@@ -28,6 +28,7 @@ Wed May 13 02:51:02 AM CEST 2026
 
 int main() {
   InitGeometryLib();
+  SetConfigFlags(FLAG_MSAA_4X_HINT); // Enable 4x Multi-sample Anti-aliasing
   InitWindow(500, 400, "C Raylib + openNURBS Bridge");
 
   Vec2 samples[NUM_SAMPLES];
