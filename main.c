@@ -33,7 +33,7 @@ int main() {
   Vec2 samples[NUM_SAMPLES];
 
   for (int i = 0; i < NUM_SAMPLES; i++) {
-    float x = i * 2.0f;
+    float x = i * 1.0f;
     float y = sinf(x) * 100.0f;
     samples[i] = (Vec2){ x * 40.0f + 50.0f, 225.0f - y };
   }
