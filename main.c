@@ -30,18 +30,6 @@ Wed May 13 02:51:02 AM CEST 2026
 
 int frameCount = 0;
 
-void saveImage(){
-  // Load or create your image
-  Image myImage = LoadImage("player_avatar.png");
-
-
-  // Save the image to disk
-  ExportImage(myImage, "exported_avatar.png");
-
-  // Don't forget to unload it from CPU memory when done
-  UnloadImage(myImage);
-}
-
 int main() {
   InitGeometryLib();
   SetConfigFlags(FLAG_MSAA_4X_HINT); // Enable 4x Multi-sample Anti-aliasing
