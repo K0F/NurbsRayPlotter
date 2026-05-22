@@ -1,5 +1,5 @@
 /*
-Coded by Kof & Gemča @ 
+Coded by Kof @
 Wed May 13 02:51:02 AM CEST 2026
 
    ,dPYb,                  ,dPYb,
@@ -24,47 +24,71 @@ Wed May 13 02:51:02 AM CEST 2026
 #include "geometry_bridge.h"
 #include <math.h>
 
-#define NUM_SAMPLES 11
+#define NUM_SAMPLES 36
+#define CURVE_RESOLUTION 256.0f
+#define TARGET_FPS 50
+
+int frameCount = 0;
+
+void saveImage(){
+  // Load or create your image
+  Image myImage = LoadImage("player_avatar.png");
+
+
+  // Save the image to disk
+  ExportImage(myImage, "exported_avatar.png");
+
+  // Don't forget to unload it from CPU memory when done
+  UnloadImage(myImage);
+}
 
 int main() {
   InitGeometryLib();
   SetConfigFlags(FLAG_MSAA_4X_HINT); // Enable 4x Multi-sample Anti-aliasing
-  InitWindow(500, 400, "C Raylib + openNURBS Bridge");
+                                     //
+  InitWindow(768, 576, "OpenNURBS Plotter");
 
   Vec2 samples[NUM_SAMPLES];
 
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    float x = i * 1.0f;
-    float y = sinf(x) * 100.0f;
-    samples[i] = (Vec2){ x * 40.0f + 50.0f, 225.0f - y };
-  }
-
-  // Create the NURBS curve via the bridge
-  NurbsCurveHandle curve = CreateFunctionCurve(samples, NUM_SAMPLES);
-
   // FPS
-  SetTargetFPS(60);
+  SetTargetFPS(TARGET_FPS);
 
+  // main loop
   while (!WindowShouldClose()) {
     BeginDrawing();
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
+
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+      float x = i * 1.0f;
+      float y = sinf(x + (frameCount/10.0) + i/10.0) * 50.0f;
+      samples[i] = (Vec2){ x * 18.0f + 65.0f, 240.0f - y };
+    }
+
+    // Create the NURBS curve via the bridge
+    NurbsCurveHandle curve = CreateFunctionCurve(samples, NUM_SAMPLES);
+
 
     // Draw the curve by sampling it at high resolution
     Vec2 prev = EvaluateCurve(curve, 0.0f);
-    for (int i = 1; i <= 100; i++) {
-      float t = (float)i / 100.0f;
+    for (int i = 1; i <= CURVE_RESOLUTION; i++) {
+      float t = (float)i / CURVE_RESOLUTION;
       Vec2 current = EvaluateCurve(curve, t);
-      DrawLineEx((Vector2){prev.x, prev.y}, (Vector2){current.x, current.y}, 2.0f, MAROON);
+      DrawLineEx((Vector2) {prev.x, prev.y}, (Vector2){current.x, current.y}, 2.0f, ORANGE);
       prev = current;
     }
 
     // Draw original points for reference
-    for (int i = 0; i < NUM_SAMPLES; i++) DrawCircle(samples[i].x, samples[i].y, 3, DARKBLUE);
-
+    for (int i = 0; i < NUM_SAMPLES; i++) DrawCircle(samples[i].x, samples[i].y, 3, WHITE);
     EndDrawing();
-  }
 
-  DestroyCurve(curve);
+    const char *fileName = TextFormat("render/frame_%05d.png", frameCount);
+    TakeScreenshot(fileName);
+
+    DestroyCurve(curve);
+    frameCount++;
+
+  }// main loop
+
   CloseWindow();
   return 0;
 }

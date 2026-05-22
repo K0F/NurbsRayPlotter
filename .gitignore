@@ -1,2 +1,4 @@
 nurbsRayPlotter
 *.o
+*.png
+render
