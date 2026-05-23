@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#define STB_PERLIN_IMPLEMENTATION
+#include "stb_perlin.h"
+
 #define NUM_SAMPLES 36
 #define CURVE_RESOLUTION 256.0f
 #define TARGET_FPS 50
@@ -39,7 +42,7 @@ int main() {
   PlayAudioStream(audioStream);
 
   SetConfigFlags(FLAG_MSAA_4X_HINT); 
-  InitWindow(768, 576, "OpenNURBS Drawable Synth");
+  InitWindow(814, 576, "OpenNURBS Drawable Synth");
 
   Vec2 samples[NUM_SAMPLES];
   
@@ -49,6 +52,7 @@ int main() {
       float x = i * 1.0f;
       float normPhase = ((float)i / (NUM_SAMPLES - 1)) * 2.0f * PI;
       float y = sinf(normPhase) * 50.0f;
+
       samples[i] = (Vec2){ x * 18.0f + 65.0f, 240.0f - y };
   }
 
@@ -67,7 +71,6 @@ int main() {
         for (int i = 0; i < NUM_SAMPLES; i++) {
             // Find distance from mouse to this control point on the X axis
             float distX = fabsf(mousePos.x - samples[i].x);
-
             // If the point is inside our brush radius, pull it towards the mouse Y
             if (distX < brushRadius) {
                 // Closer to center = stronger pull (1.0). Edge of radius = weak pull (0.0).
@@ -78,10 +81,17 @@ int main() {
                 if (targetY < 40.0f) targetY = 40.0f;
                 if (targetY > 440.0f) targetY = 440.0f;
 
+
                 // Ease the point towards the mouse smoothly
                 samples[i].y += (targetY - samples[i].y) * influence * 0.3f;
+
             }
         }
+    }
+    // perlin morphing
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+            float noise = stb_perlin_noise3(i * 0.2f, frameCount * 0.02f, 0, 0, 0, 0);
+            samples[i].y += noise * 0.5f;
     }
 
     // Generate curve from the modified points
