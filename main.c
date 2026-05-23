@@ -10,7 +10,7 @@
 #define FONT_SIZE 12
 
 #define SAMPLE_RATE 44100
-#define AUDIO_BUFFER_SIZE 512
+#define AUDIO_BUFFER_SIZE 2048
 #define WAVETABLE_SIZE 2048 
 
 #define NUM_VOICES 3
@@ -59,20 +59,20 @@ int main() {
   float brushRadius = 50.0f; // How wide the mouse affects the curve
 
   while (!WindowShouldClose()) {
-    
+
     // 2. MOUSE INTERACTION (The Magnetic Brush)
     Vector2 mousePos = GetMousePosition();
-    
+
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         for (int i = 0; i < NUM_SAMPLES; i++) {
             // Find distance from mouse to this control point on the X axis
             float distX = fabsf(mousePos.x - samples[i].x);
-            
+
             // If the point is inside our brush radius, pull it towards the mouse Y
             if (distX < brushRadius) {
                 // Closer to center = stronger pull (1.0). Edge of radius = weak pull (0.0).
                 float influence = 1.0f - (distX / brushRadius);
-                
+
                 // Keep the points from going completely off-screen
                 float targetY = mousePos.y;
                 if (targetY < 40.0f) targetY = 40.0f;
@@ -91,32 +91,32 @@ int main() {
     for (int i = 0; i < WAVETABLE_SIZE; i++) {
         float t = (float)i / WAVETABLE_SIZE;
         Vec2 curvePoint = EvaluateCurve(curve, t);
-        
+
         // We divide by 150.0f to give the user plenty of vertical drawing space
         float rawAudioSample = (240.0f - curvePoint.y) / 150.0f;
-        
+
         // RE-APPLIED TAPER: Forces the edges of the drawing to exactly 0.0
         // so you never get clicks when drawing mismatched edges.
         float fadeAmount = 1.0f;
         float fadeEdgeRatio = 0.05f; // Taper the outer 5% of the curve
         if (t < fadeEdgeRatio) {
-            fadeAmount = sinf((t / fadeEdgeRatio) * (PI / 2.0f)); 
+            fadeAmount = sinf((t / fadeEdgeRatio) * (PI / 2.0f));
         } else if (t > 1.0f - fadeEdgeRatio) {
             fadeAmount = sinf(((1.0f - t) / fadeEdgeRatio) * (PI / 2.0f)); 
         }
 
         rawAudioSample *= fadeAmount;
-        
+
         if (rawAudioSample > 1.0f)  rawAudioSample = 1.0f;
         if (rawAudioSample < -1.0f) rawAudioSample = -1.0f;
-        
+
         wavetableBack[i] = rawAudioSample;
     }
 
     // 4. POLYPHONIC AUDIO SYNTHESIS
     if (IsAudioStreamProcessed(audioStream)) {
         for (int i = 0; i < AUDIO_BUFFER_SIZE; i++) {
-            float mixedSample = 0.0f; 
+            float mixedSample = 0.0f;
 
             for (int v = 0; v < NUM_VOICES; v++) {
                 float pointerStep = (WAVETABLE_SIZE * playbackFrequencies[v]) / SAMPLE_RATE;
@@ -124,20 +124,20 @@ int main() {
 
                 if (readPointers[v] >= WAVETABLE_SIZE) {
                     readPointers[v] -= WAVETABLE_SIZE;
-                    
+
                     if (v == 0) { // Only swap buffer when root note finishes cycle
                         for (int j = 0; j < WAVETABLE_SIZE; j++) wavetableFront[j] = wavetableBack[j];
                     }
                 }
 
                 int index1 = (int)readPointers[v];
-                int index2 = (index1 + 1) % WAVETABLE_SIZE; 
+                int index2 = (index1 + 1) % WAVETABLE_SIZE;
                 float fraction = readPointers[v] - index1;
 
-                float voiceSample = (wavetableFront[index1] * (1.0f - fraction)) + 
+                float voiceSample = (wavetableFront[index1] * (1.0f - fraction)) +
                                     (wavetableFront[index2] * fraction);
 
-                mixedSample += voiceSample; 
+                mixedSample += voiceSample;
             }
 
             mixedSample = mixedSample / NUM_VOICES;
@@ -150,7 +150,7 @@ int main() {
     BeginDrawing();
     ClearBackground(BLACK);
 
-    DrawTextEx(pixelFont, "CLICK AND DRAG TO DRAW WAVEFORM", (Vector2){40, 30}, FONT_SIZE, 1, WHITE);
+    DrawTextEx(pixelFont, "NURBS WAVEFORM WITH HARMONICS by KOF", (Vector2){40, 30}, FONT_SIZE, 1, WHITE);
 
     // Draw brush indicator
     DrawCircleLines(mousePos.x, mousePos.y, brushRadius, DARKGRAY);
