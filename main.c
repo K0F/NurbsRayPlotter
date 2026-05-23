@@ -18,6 +18,7 @@ Wed May 13 02:51:02 AM CEST 2026
                            I8, ,8'
                             "Y8P'
 */
+
 #include "raylib.h"
 #include "geometry_bridge.h"
 #include <math.h>
@@ -33,8 +34,14 @@ Wed May 13 02:51:02 AM CEST 2026
 #define AUDIO_BUFFER_SIZE 1024
 #define WAVETABLE_SIZE 2048
 
+#define NUM_VOICES 3
+
+// A minor chord (Root, Minor 3rd, Perfect 5th)
+float playbackFrequencies[NUM_VOICES] = {110.0f, 130.81f, 164.81f, 55.0f, 432.0f};
+float readPointers[NUM_VOICES] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
 #ifndef PI
-    #define PI 3.14159265358979323846f
+#define PI 3.14159265358979323846f
 #endif
 
 int frameCount = 0;
@@ -77,10 +84,10 @@ int main() {
 
       // Notice there is no "timeOffset" sliding left or right.
       // The start (0) and end (2*PI) of these sines will ALWAYS be exactly 0.0
-      float y = sinf(normPhase * 1.0f + x/2.0f) * 31.0f                                // Fundamental
-              + sinf(normPhase * 2.0f + x/3.0f) * (16.1f * shapeMorph)          // 2nd Harmonic morphs
-              + sinf(normPhase * 3.0f + x/4.0f) * (16.2f * (1.0f - shapeMorph)) // 3rd Harmonic inverses
-              + sinf( (frameCount + x) / 10.0f * PI) * 20.0f;
+      float y = sinf(normPhase * 1.0f + x/20.0f) * 31.0f                                // Fundamental
+        + sinf(normPhase * 2.0f + x/30.0f) * (14.1f * shapeMorph)          // 2nd Harmonic morphs
+        + sinf(normPhase * 3.0f + x/40.0f) * (16.2f * (1.0f - shapeMorph)) // 3rd Harmonic inverses
+        + sinf( (frameCount + x) / 100.0f * PI) * 20.0f;
 
       samples[i] = (Vec2){ x * 20.0f + 65.0f, 240.0f - y };
     }
@@ -89,47 +96,61 @@ int main() {
 
     // 2. BAKE CURVE TO *BACK* BUFFER
     for (int i = 0; i < WAVETABLE_SIZE; i++) {
-        float t = (float)i / WAVETABLE_SIZE;
-        Vec2 curvePoint = EvaluateCurve(curve, t);
+      float t = (float)i / WAVETABLE_SIZE;
+      Vec2 curvePoint = EvaluateCurve(curve, t);
 
-        float rawAudioSample = (240.0f - curvePoint.y) / 50.0f;
+      float rawAudioSample = (240.0f - curvePoint.y) / 50.0f;
 
-        if (rawAudioSample > 1.0f)  rawAudioSample = 1.0f;
-        if (rawAudioSample < -1.0f) rawAudioSample = -1.0f;
+      if (rawAudioSample > 1.0f)  rawAudioSample = 1.0f;
+      if (rawAudioSample < -1.0f) rawAudioSample = -1.0f;
 
-        wavetableBack[i] = rawAudioSample;
+      wavetableBack[i] = rawAudioSample;
     }
 
-    // 3. AUDIO SYNTHESIS (Zero-Crossing Safe)
+    // 3. POLYPHONIC AUDIO SYNTHESIS
     if (IsAudioStreamProcessed(audioStream)) {
-        float pointerStep = (WAVETABLE_SIZE * playbackFrequency) / SAMPLE_RATE;
+      for (int i = 0; i < AUDIO_BUFFER_SIZE; i++) {
 
-        for (int i = 0; i < AUDIO_BUFFER_SIZE; i++) {
+        float mixedSample = 0.0f; // Accumulator for the chord
 
-            readPointer += pointerStep;
+        // Calculate the sound of all 3 notes at this exact microsecond
+        for (int v = 0; v < NUM_VOICES; v++) {
+          float pointerStep = (WAVETABLE_SIZE * playbackFrequencies[v]) / SAMPLE_RATE;
+          readPointers[v] += pointerStep;
 
-            // THE MAGIC FIX: Only swap the back buffer to the front buffer
-            // at the exact moment the wave starts a new cycle!
-            if (readPointer >= WAVETABLE_SIZE) {
-                readPointer -= WAVETABLE_SIZE;
+          // Handle the wrap-around for this specific voice
+          if (readPointers[v] >= WAVETABLE_SIZE) {
+            readPointers[v] -= WAVETABLE_SIZE;
 
-                // Copy the newly drawn frame to the live audio buffer
-                for (int j = 0; j < WAVETABLE_SIZE; j++) {
-                    wavetableFront[j] = wavetableBack[j];
-                }
+            // Zero-Crossing Check: Only swap the double-buffer when the
+            // lowest root note (Voice 0) starts a new cycle.
+            if (v == 0) {
+              for (int j = 0; j < WAVETABLE_SIZE; j++) {
+                wavetableFront[j] = wavetableBack[j];
+              }
             }
+          }
 
-            int index1 = (int)readPointer;
-            int index2 = (index1 + 1) % WAVETABLE_SIZE;
-            float fraction = readPointer - index1;
+          // Interpolate the wave for this specific voice
+          int index1 = (int)readPointers[v];
+          int index2 = (index1 + 1) % WAVETABLE_SIZE;
+          float fraction = readPointers[v] - index1;
 
-            // Play from the FRONT buffer safely
-            float sample = (wavetableFront[index1] * (1.0f - fraction)) +
-                           (wavetableFront[index2] * fraction);
+          float voiceSample = (wavetableFront[index1] * (1.0f - fraction)) +
+            (wavetableFront[index2] * fraction);
 
-            audioWriteBuffer[i] = (short)(sample * 32767.0f * 0.30f);
+          // Add this note's waveform to the total mix
+          mixedSample += voiceSample;
         }
-        UpdateAudioStream(audioStream, audioWriteBuffer, AUDIO_BUFFER_SIZE);
+
+        // --- THE MIXDOWN MATH ---
+        // Divide by the number of voices to prevent digital clipping!
+        mixedSample = mixedSample / NUM_VOICES;
+
+        // Convert the final chord to a 16-bit PCM integer
+        audioWriteBuffer[i] = (short)(mixedSample * 32767.0f * 0.30f);
+      }
+      UpdateAudioStream(audioStream, audioWriteBuffer, AUDIO_BUFFER_SIZE);
     }
 
     // 4. DRAW LOOP
