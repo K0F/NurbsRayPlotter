@@ -7,14 +7,17 @@
 #define STB_PERLIN_IMPLEMENTATION
 #include "stb_perlin.h"
 
+#define WIDTH 932 // golden ratio PAL deriv
+#define HEIGHT 576
+
 #define NUM_SAMPLES 36
 #define CURVE_RESOLUTION 256.0f
-#define TARGET_FPS 50
+#define TARGET_FPS 60
 #define FONT_SIZE 12
 
 #define SAMPLE_RATE 44100
 #define AUDIO_BUFFER_SIZE 2048
-#define WAVETABLE_SIZE 2048 
+#define WAVETABLE_SIZE 2048
 
 #define NUM_VOICES 3
 
@@ -24,28 +27,28 @@
 
 int frameCount = 0;
 
-float wavetableBack[WAVETABLE_SIZE] = {0}; 
-float wavetableFront[WAVETABLE_SIZE] = {0}; 
+float wavetableBack[WAVETABLE_SIZE] = {0};
+float wavetableFront[WAVETABLE_SIZE] = {0};
 
 // A minor chord (Root, Minor 3rd, Perfect 5th)
-float playbackFrequencies[NUM_VOICES] = {110.0f, 130.81f, 164.81f}; 
+float playbackFrequencies[NUM_VOICES] = {110.0f, 130.81f, 164.81f};
 float readPointers[NUM_VOICES] = {0.0f, 0.0f, 0.0f};
 
 int main() {
   InitGeometryLib();
-  
+
   InitAudioDevice();
   SetAudioStreamBufferSizeDefault(AUDIO_BUFFER_SIZE);
-  AudioStream audioStream = LoadAudioStream(SAMPLE_RATE, 16, 1); 
-  
+  AudioStream audioStream = LoadAudioStream(SAMPLE_RATE, 16, 1);
+
   short *audioWriteBuffer = (short *)malloc(sizeof(short) * AUDIO_BUFFER_SIZE);
   PlayAudioStream(audioStream);
 
-  SetConfigFlags(FLAG_MSAA_4X_HINT); 
-  InitWindow(814, 576, "OpenNURBS Drawable Synth");
+  SetConfigFlags(FLAG_MSAA_4X_HINT);
+  InitWindow(WIDTH, HEIGHT, "OpenNURBS Drawable Synth");
 
   Vec2 samples[NUM_SAMPLES];
-  
+
   // 1. INITIALIZE DEFAULT SHAPE ONCE
   // Instead of recalculating every frame, we just set it up at launch.
   for (int i = 0; i < NUM_SAMPLES; i++) {
@@ -112,7 +115,7 @@ int main() {
         if (t < fadeEdgeRatio) {
             fadeAmount = sinf((t / fadeEdgeRatio) * (PI / 2.0f));
         } else if (t > 1.0f - fadeEdgeRatio) {
-            fadeAmount = sinf(((1.0f - t) / fadeEdgeRatio) * (PI / 2.0f)); 
+            fadeAmount = sinf(((1.0f - t) / fadeEdgeRatio) * (PI / 2.0f));
         }
 
         rawAudioSample *= fadeAmount;
